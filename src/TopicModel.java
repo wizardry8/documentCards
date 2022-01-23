@@ -33,7 +33,8 @@ public class TopicModel {
 	private static final String OUTPUT_DIR = "imgFound/"; //Make sure the folder exists before running the program
 	private static final String INPUT_PDF = "data/3.pdf";
 	private static final int MIN_IMAGE_SIZE = 22500; //width * heigh in pixels
-
+	
+	
     public static void main(String[] args) throws Exception {
     	
     	//data structures
@@ -305,7 +306,8 @@ public class TopicModel {
     	
     	images_found.forEach((key, value) -> {
     		//System.out.println(key + ":" + value);
-    		String filename = OUTPUT_DIR + "image" + System.currentTimeMillis() + ".png";    		    		    		
+    		String filename = OUTPUT_DIR + value.get(0) + ".png";  
+    		    		
             try {
 				ImageIO.write(key, "png", new File(filename));
 			} catch (IOException e) {
