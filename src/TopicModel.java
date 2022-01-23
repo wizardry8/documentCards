@@ -28,17 +28,36 @@ import org.apache.pdfbox.pdmodel.graphics.image.PDImageXObject;
 
 
 
-public class TopicModel {
+public class TopicModel {	
 	
-	
-	private static final String OUTPUT_DIR = "imgFound/"; //LR make sure the folder exists before running the program
-	private static final String INPUT_PDF = "data/1.pdf";
+	private static final String OUTPUT_DIR = "imgFound/"; //Make sure the folder exists before running the program
+	private static final String INPUT_PDF = "data/3.pdf";
+	private static final int MIN_IMAGE_SIZE = 22500; //width * heigh in pixels
 
     public static void main(String[] args) throws Exception {
     	
+    	//data structures
     	TopicModel myModel = new TopicModel();
-    	myModel.calcTopics();
-    	myModel.getImages();
+    	ArrayList<String[]> top_ten_topics = new ArrayList<String[]>();
+    	LinkedHashMap<BufferedImage, ArrayList<Long>> top_images = new LinkedHashMap<BufferedImage, ArrayList<Long>>();
+
+    	//Find and extract topics and images from target Pdf.
+    	//Returns: ArrayList<String[]> containing [distribution, most frequent word nr1, most frequent word nr2, most frequent word nr3, most frequent word nr4, most frequent word nr5]
+    	//Consider taking the first two or three words per topic and displaying them to user (means take the first two or three words per row).
+    	top_ten_topics = myModel.calcTopics();
+    	
+    	//Returns: LinkedHashMap<BufferedImage, ArrayList<Long>> containing [img][id,size,page]
+    	//The images are already filtered by importance (size and position) and should be displayed to user
+    	top_images = myModel.getImages();
+    	
+    	
+    	//TESTING METHODS
+    	//OPTIONAL: write images to disk
+    	//myModel.imagesToDisk(top_images);
+    	
+    	//print topics and images to console
+    	myModel.printTopics(top_ten_topics);
+    	myModel.printImages(top_images);
 
     }
     
@@ -124,12 +143,6 @@ public class TopicModel {
     	 
 	     top_ten_array.sort(Comparator.comparingDouble(a -> Double.parseDouble(a[0])));
 	     Collections.reverse(top_ten_array);
-
-	     //printing topTopics ArrayList
-	     System.out.println("\nTop ten topics: [distribution, most frequent word nr1, most frequent word nr2, most frequent word nr3, most frequent word nr4, most frequent word nr5]");
-	     for(String i[] : top_ten_array) {
-	    	 System.out.println(Arrays.toString(i));	    	 
-	     }
 	    	     
         return(top_ten_array);
     }
@@ -147,9 +160,9 @@ public class TopicModel {
 
 	    //Retrieving text from PDF document
 	    String text = pdfStripper.getText(document);
-	    System.out.println(text);
+	    //System.out.println(text);
 
-	    document.close();	      
+	    document.close();	      	    	    	    
 	    
 	    return text;	    	          	 
     }
@@ -172,12 +185,9 @@ public class TopicModel {
                 images_found.putAll(filterResourcesForImages(object_from_page, page_index));
             }
         }        
-    	
-        //print the found images
-    	System.out.println("\nFound images, printing map: [img][id,size,page]");
-    	System.out.println("map size: " + images_found.size());
-    	images_found.forEach((key, value) -> System.out.println(key + ":" + value)); 
-    	    	
+    	    
+        images_found = rankImages(images_found);
+        
     	return images_found;
     }
 
@@ -188,12 +198,8 @@ public class TopicModel {
     	
     	//image objects are handled
     	if (object_from_page instanceof PDImageXObject) {
-    		//write image to file
-            PDImageXObject image = (PDImageXObject)object_from_page;
-            String filename = OUTPUT_DIR + "image" + System.currentTimeMillis() + ".png";
-            ImageIO.write(image.getImage(), "png", new File(filename));
-            
             //add image to LinkedHashMap
+            PDImageXObject image = (PDImageXObject)object_from_page;    		            
             ArrayList<Long> image_properties = new ArrayList<Long>();
             image_properties.add(System.currentTimeMillis());
             image_properties.add((long)image.getWidth()*image.getHeight());
@@ -210,11 +216,8 @@ public class TopicModel {
                 if (object_from_form instanceof PDFormXObject) {
                     //object contained in form is not an image
                 } else if (object_from_form instanceof PDImageXObject) {
-            		//write image to file
+                	//add image to LinkedHashMap
                     PDImageXObject image = (PDImageXObject)object_from_form;
-                    String filename = OUTPUT_DIR + "image" + System.currentTimeMillis() + ".png";
-                    ImageIO.write(image.getImage(), "png", new File(filename));                            
-                    //add image to LinkedHashMap
                     ArrayList<Long> image_properties = new ArrayList<Long>();
                     image_properties.add(System.currentTimeMillis());
                     image_properties.add((long)image.getWidth()*image.getHeight());
@@ -225,6 +228,106 @@ public class TopicModel {
         }
     	
     	return images_found;
+    }
+    
+    public LinkedHashMap<BufferedImage, ArrayList<Long>> rankImages(LinkedHashMap<BufferedImage, ArrayList<Long>> images_found){
+    	    	
+    	LinkedHashMap<BufferedImage, ArrayList<Long>> ranked_images = new LinkedHashMap<BufferedImage, ArrayList<Long>>();
+    	    	
+    	//Exclude images beneath the MIN_IMAGE_SIZE
+    	Iterator<BufferedImage> it = images_found.keySet().iterator();
+    	
+    	while(it.hasNext()) {
+    		BufferedImage key = it.next();
+    		
+    		if(images_found.get(key).get(1) < MIN_IMAGE_SIZE) {
+    			it.remove();
+    		}
+    	}
+    	    	    	
+    	
+    	//TODO:
+    	//**************************************************************************************************
+    	//Filter images by histogram at this point of the process, this will make sure that we have filtered 
+    	//out any images that are too small or dont match histogram BEFORE we take the first and last picture of the document.
+    	//
+    	//Container with all the images you are interested in: LinkedHashMap<BufferedImage, ArrayList<Long>> images_found
+    	//The Key of the map is the "BufferedImage" these are your images
+    	
+    	    	
+	    //Add first and last entry of images_found to the ranked_image list, because they are closest to beginning and end of document (abstract, conclusion)     	      	      	     	      
+        BufferedImage[] aKeys = images_found.keySet().toArray(new BufferedImage[images_found.size()]);
+        	      
+	    //Fill new list with last and first entry, make sure to delete them in old list
+	    if(images_found.size() > 1) {
+	      	    	  	    		      	    	 
+	      //System.out.println("adding first entry: " + aKeys[0] + ", " + images_found.get(aKeys[0]));
+	      ranked_images.put(aKeys[0],images_found.get(aKeys[0])); 
+	      images_found.remove(aKeys[0]);
+	    	  
+	      //System.out.println("adding last entry: " + aKeys[aKeys.length - 1] + ", " + images_found.get(aKeys[aKeys.length - 1]));
+	      ranked_images.put(aKeys[aKeys.length - 1],images_found.get(aKeys[aKeys.length - 1]));
+	      images_found.remove(aKeys[aKeys.length - 1]);
+	      
+	    }	      	     
+	      	      	      
+	    
+	    //Sort the list descending by size	      
+	    List<Map.Entry<BufferedImage, ArrayList<Long>> > images_to_be_sorted = new ArrayList<Map.Entry<BufferedImage, ArrayList<Long>> >(images_found.entrySet());
+	      	     
+	    Collections.sort(images_to_be_sorted, new Comparator<Map.Entry<BufferedImage, ArrayList<Long>> >() {
+	      // Comparing two entries by value
+	      public int compare(Map.Entry<BufferedImage, ArrayList<Long>> entry1, Map.Entry<BufferedImage, ArrayList<Long>> entry2){
+	   
+	        // Substracting the entries
+	        return entry2.getValue().get(0).compareTo(entry1.getValue().get(0));
+	      }
+	    });
+	      	      	      
+	      
+	    //Take the biggest images from the sorted list and add them to the ranked_images	       	      
+	    if(images_to_be_sorted.size() > 3) {
+	      for(int i = 0 ; i < 4; i++) {
+	        ranked_images.put(images_to_be_sorted.get(i).getKey(), images_to_be_sorted.get(i).getValue());
+	      }
+	    }
+	    else if(images_to_be_sorted.size() > 0) {
+	      for(int i = 0 ; i < images_to_be_sorted.size(); i++) {
+	        ranked_images.put(images_to_be_sorted.get(i).getKey(), images_to_be_sorted.get(i).getValue());
+	      }
+	    }	          	    	
+    	
+    	return ranked_images;
+    }
+    
+    //write the images to disk
+    public void imagesToDisk(LinkedHashMap<BufferedImage, ArrayList<Long>> images_found){
+    	
+    	images_found.forEach((key, value) -> {
+    		//System.out.println(key + ":" + value);
+    		String filename = OUTPUT_DIR + "image" + System.currentTimeMillis() + ".png";    		    		    		
+            try {
+				ImageIO.write(key, "png", new File(filename));
+			} catch (IOException e) {
+				System.out.println("Error saving found image to disk.");
+				e.printStackTrace();
+			}    		
+    	});     	    	        
+    }
+    
+    //print the extracted images to console
+    public void printImages(LinkedHashMap<BufferedImage, ArrayList<Long>> images_found) {    	
+    	System.out.println("\nFound images, printing map: [img][id,size,page]");
+    	System.out.println("map size: " + images_found.size());
+    	images_found.forEach((key, value) -> System.out.println(key + ":" + value)); 
+    }
+
+    //print the extracted topics to console
+    public void printTopics(ArrayList<String[]> topics_found) {
+	     System.out.println("\nTop ten topics: [distribution, most frequent word nr1, most frequent word nr2, most frequent word nr3, most frequent word nr4, most frequent word nr5]");
+	     for(String i[] : topics_found) {
+	    	 System.out.println(Arrays.toString(i));	    	 
+	     }
     }
 
 }
