@@ -64,6 +64,7 @@ public class TopicModel {
 	}
 		
 	public class DcPdfData{
+		public String last_known_filesystem_path_to_pdf;
 		public String title;
 		public String author;	
 		public String subject;
@@ -84,49 +85,21 @@ public class TopicModel {
 	public ArrayList<DcTopicData> topicsDC;	
 	public DcPdfData pdf_dataDC;	
 
-    public static void main(String[] args) throws Exception {    	
-    	
-    	//MAIN NOT CALLED ANYMORE USE:  returnAllExtractedPdfData(String path_to_pdf_file)
-    	/*
-    	 
-    	//data structures
-    	TopicModel myModel = new TopicModel();    	
-    	ArrayList<String[]> top_ten_topics = new ArrayList<String[]>();
-    	LinkedHashMap<BufferedImage, ArrayList<Long>> top_images = new LinkedHashMap<BufferedImage, ArrayList<Long>>();
-
-    	//Get title, author, subject, pagenr. ...
-    	myModel.getPdfMetaData();
-    	
-    	//Find and extract topics and images from target Pdf.
-    	//Returns: ArrayList<String[]> containing [distribution, most frequentj word nr1, most frequent word nr2, most frequent word nr3, most frequent word nr4, most frequent word nr5]
-    	//Consider taking the first two or three words per topic and displaying them to user (means take the first two or three words per row).
-    	top_ten_topics = myModel.calcTopics();
-    	
-    	//Returns: LinkedHashMap<BufferedImage, ArrayList<Long>> containing [img][id,size,page]
-    	//The images are already filtered by importance (size and position) and should be displayed to user
-    	top_images = myModel.getImages();
-    	
-    	
-    	//TESTING METHODS
-    	//OPTIONAL: write images to disk
-    	//myModel.imagesToDisk(top_images);
-    	
-    	myModel.printTopicObject();
-    	myModel.printImageObject(); 
-    	myModel.printPdfMetadata();
-    	
-    	*/   
-    	
+    public static void main(String[] args) throws Exception {     	
+    	System.out.println("MAIN NOT CALLED ANYMORE USE METHOD:  returnAllExtractedPdfData(String path_to_pdf_file)");    	
     }
     
     public DcPdfAutopsy returnAllExtractedPdfData(String path_to_pdf_file) throws Exception{
     	    	    	
+    	System.out.println("path: " + path_to_pdf_file);
+    	
     	//data structures
     	TopicModel myModel = new TopicModel();    	
     	ArrayList<String[]> top_ten_topics = new ArrayList<String[]>();
     	LinkedHashMap<BufferedImage, ArrayList<Long>> top_images = new LinkedHashMap<BufferedImage, ArrayList<Long>>();
 
-    	myModel.INPUT_PDF = path_to_pdf_file;    	
+    	myModel.INPUT_PDF = path_to_pdf_file;
+    	myModel.autopsyDC.extracted_data.last_known_filesystem_path_to_pdf = path_to_pdf_file;
     	
     	//Get title, author, subject, pagenr. ...
     	myModel.getPdfMetaData();
@@ -272,8 +245,8 @@ public class TopicModel {
 	    this.pdf_dataDC.title = info.getTitle();
 	    this.pdf_dataDC.author = info.getAuthor();
 	    this.pdf_dataDC.subject = info.getSubject();
-	    this.pdf_dataDC.total_nr_pages = document.getNumberOfPages();	
-	    
+	    this.pdf_dataDC.total_nr_pages = document.getNumberOfPages();
+	    	    
 	    document.close();
     }
     
@@ -348,8 +321,12 @@ public class TopicModel {
         else if(object_from_page instanceof PDFormXObject) {                    	
         	PDFormXObject form = (PDFormXObject)object_from_page;
         	PDResources form_resources = form.getResources();
+        	if(form_resources == null) {
+        		return images_found;
+        	}
+        	
             for (COSName name_inner : form_resources.getXObjectNames()) {
-                PDXObject object_from_form = form_resources.getXObject(name_inner);
+                PDXObject object_from_form = form_resources.getXObject(name_inner);                
 
                 if (object_from_form instanceof PDFormXObject) {
                     //object contained in form is not an image
